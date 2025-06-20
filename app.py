@@ -1,67 +1,56 @@
 import streamlit as st
-from datetime import datetime, timedelta
-from utils import init_db, add_user, verify_user, update_first_use, get_first_use
+import pandas as pd
+from datetime import datetime, date
+import os
 
-st.set_page_config(page_title="Aplikacja Liczenia Kalorii", page_icon="🍎")
+# Ścieżka do pliku z danymi
+DATA_PATH = "data/posilki.csv"
 
-init_db()
+# Inicjalizacja danych
+def load_data():
+    if not os.path.exists(DATA_PATH):
+        df = pd.DataFrame(columns=["data", "czas", "produkt", "waga", "kalorie", "typ"])
+        df.to_csv(DATA_PATH, index=False)
+    return pd.read_csv(DATA_PATH)
 
-user_avatars = {
-    "Chmarynka": "🌥️",
-    "Demo": "🆓",
-}
+def save_data(df):
+    df.to_csv(DATA_PATH, index=False)
 
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_name" not in st.session_state:
-    st.session_state.user_name = ""
+# Interfejs
+st.set_page_config("Dziennik Kalorii", layout="centered", page_icon="🍽️")
+st.title("🍽️ Dziennik posiłków")
 
-def register():
-    st.subheader("Rejestracja")
-    username = st.text_input("Nazwa użytkownika (login)", key="reg_username")
-    password = st.text_input("Hasło", type="password", key="reg_password")
-    email = st.text_input("Email (opcjonalnie)", key="reg_email")
-    if st.button("Zarejestruj"):
-        if not username or not password:
-            st.error("Podaj nazwę użytkownika i hasło.")
-            return
-        if add_user(username.strip(), password.strip(), email.strip()):
-            st.success("Zarejestrowano pomyślnie! Możesz się teraz zalogować.")
-        else:
-            st.error("Użytkownik o tej nazwie już istnieje.")
+df = load_data()
+today = date.today().strftime("%Y-%m-%d")
+df_today = df[df["data"] == today]
 
-def login():
-    st.subheader("Logowanie")
-    username = st.text_input("Nazwa użytkownika", key="login_username")
-    password = st.text_input("Hasło", type="password", key="login_password")
-    if st.button("Zaloguj"):
-        if verify_user(username.strip(), password.strip()):
-            st.session_state.logged_in = True
-            st.session_state.user_name = username.strip()
-            update_first_use(st.session_state.user_name)
-            st.experimental_rerun()
-        else:
-            st.error("Nieprawidłowy login lub hasło.")
+cel_kalorii = 2200
+spozyto = df_today["kalorie"].sum()
 
-if not st.session_state.logged_in:
-    st.title("Witamy w aplikacji liczenia kalorii 🍏")
-    register()
-    st.markdown("---")
-    login()
-    st.stop()
+# Nagłówek
+st.markdown(f"""
+### 📅 Dziś: {today}
+🎯 Cel: **{cel_kalorii} kcal**  
+🔥 Spożyto: **{spozyto} kcal**
+""")
 
-first_use_str = get_first_use(st.session_state.user_name)
-if first_use_str:
-    first_use = datetime.fromisoformat(first_use_str)
-    if datetime.now() - first_use > timedelta(days=1):
-        st.warning(
-            f"Twoja wersja demo konta '{st.session_state.user_name}' zakończyła się. "
-            "Skontaktuj się z autorem aplikacji, aby uzyskać pełny dostęp."
-        )
-        st.stop()
+with st.expander("➕ Dodaj posiłek"):
+    produkt = st.text_input("Nazwa produktu")
+    waga = st.number_input("Waga (g)", min_value=0)
+    kalorie = st.number_input("Kalorie", min_value=0)
+    typ = st.selectbox("Typ posiłku", ["Śniadanie", "Obiad", "Kolacja", "Przekąska", "Inne"])
+    czas = st.time_input("Godzina spożycia", value=datetime.now().time())
 
-avatar = user_avatars.get(st.session_state.user_name, "👤")
-st.title(f"Witaj, {avatar} {st.session_state.user_name}!")
-st.write("Tu możesz korzystać z aplikacji liczenia kalorii i innych funkcji.")
-
-# --- Tutaj możesz dopisać dalszą funkcjonalność aplikacji ---
+    if st.button("💾 Zapisz"):
+        now = datetime.now()
+        new_row = {
+            "data": today,
+            "czas": czas.strftime("%H:%M"),
+            "produkt": produkt,
+            "waga": waga,
+            "kalorie": kalorie,
+            "typ": typ
+        }
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        save_data(df)
+        st.success("Dodan
