@@ -53,4 +53,17 @@ with st.expander("➕ Dodaj posiłek"):
         }
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         save_data(df)
-        st.success("Dodan
+        st.success("Dodano posiłek!")
+
+# Lista posiłków
+st.subheader("🍴 Posiłki dzisiaj")
+if df_today.empty:
+    st.info("Brak posiłków na dziś.")
+else:
+    for _, row in df_today.iterrows():
+        st.markdown(f"• 🕒 {row['czas']} – {row['produkt']} {int(row['waga'])}g – **{int(row['kalorie'])} kcal** ({row['typ']})")
+
+# Przycisk do przejścia do statystyk (opcjonalnie)
+if st.button("📊 Pokaż statystyki"):
+    st.switch_page("pages/statystyki.py")  # lub możesz dodać osobny plik w pages/
+
