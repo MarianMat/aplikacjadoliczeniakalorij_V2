@@ -1,69 +1,83 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
 import os
 
-# Ścieżka do pliku z danymi
-DATA_PATH = "data/posilki.csv"
+# Nazwa pliku z danymi użytkowników
+USERS_FILE = "users.csv"
 
-# Inicjalizacja danych
-def load_data():
-    if not os.path.exists(DATA_PATH):
-        df = pd.DataFrame(columns=["data", "czas", "produkt", "waga", "kalorie", "typ"])
-        df.to_csv(DATA_PATH, index=False)
-    return pd.read_csv(DATA_PATH)
+# Wczytywanie danych użytkowników
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        df = pd.DataFrame([
+            {"username": "admin", "password": "password123", "role": "admin"},
+            {"username": "demo", "password": "demo", "role": "user"}
+        ])
+        df.to_csv(USERS_FILE, index=False)
+    return pd.read_csv(USERS_FILE)
 
-def save_data(df):
-    df.to_csv(DATA_PATH, index=False)
+# Uwierzytelnienie
+def authenticate(username, password):
+    df = load_users()
+    user = df[(df["username"] == username) & (df["password"] == password)]
+    if not user.empty:
+        return user.iloc[0]
+    return None
 
-# Interfejs
-st.set_page_config("Dziennik Kalorii", layout="centered", page_icon="🍽️")
-st.title("🍽️ Dziennik posiłków")
+# Interfejs logowania
+st.set_page_config(page_title="Logowanie", layout="centered")
+st.title("Logowanie do Dziennika Kalorii 🍽️")
 
-df = load_data()
-today = date.today().strftime("%Y-%m-%d")
-df_today = df[df["data"] == today]
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.role = None
 
-cel_kalorii = 2200
-spozyto = df_today["kalorie"].sum()
+if not st.session_state.logged_in:
+    username = st.text_input("Nazwa użytkownika")
+    password = st.text_input("Hasło", type="password")
 
-# Nagłówek
-st.markdown(f"""
-### 📅 Dziś: {today}
-🎯 Cel: **{cel_kalorii} kcal**  
-🔥 Spożyto: **{spozyto} kcal**
-""")
+    if st.button("Zaloguj"):
+        user = authenticate(username, password)
+        if user is not None:
+            st.session_state.logged_in = True
+            st.session_state.username = user["username"]
+            st.session_state.role = user["role"]
+            st.success(f"Witaj, {username}! Zostałeś zalogowany.")
+            st.experimental_rerun()
+        else:
+            st.error("Nieprawidłowa nazwa użytkownika lub hasło.")
 
-with st.expander("➕ Dodaj posiłek"):
-    produkt = st.text_input("Nazwa produktu")
-    waga = st.number_input("Waga (g)", min_value=0)
-    kalorie = st.number_input("Kalorie", min_value=0)
-    typ = st.selectbox("Typ posiłku", ["Śniadanie", "Obiad", "Kolacja", "Przekąska", "Inne"])
-    czas = st.time_input("Godzina spożycia", value=datetime.now().time())
-
-    if st.button("💾 Zapisz"):
-        now = datetime.now()
-        new_row = {
-            "data": today,
-            "czas": czas.strftime("%H:%M"),
-            "produkt": produkt,
-            "waga": waga,
-            "kalorie": kalorie,
-            "typ": typ
-        }
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-        save_data(df)
-        st.success("Dodano posiłek!")
-
-# Lista posiłków
-st.subheader("🍴 Posiłki dzisiaj")
-if df_today.empty:
-    st.info("Brak posiłków na dziś.")
+    if st.button("Dostęp Demo"):
+        user = authenticate("demo", "demo")
+        st.session_state.logged_in = True
+        st.session_state.username = user["username"]
+        st.session_state.role = user["role"]
+        st.experimental_rerun()
 else:
-    for _, row in df_today.iterrows():
-        st.markdown(f"• 🕒 {row['czas']} – {row['produkt']} {int(row['waga'])}g – **{int(row['kalorie'])} kcal** ({row['typ']})")
+    st.success(f"Jesteś zalogowany jako **{st.session_state.username}**.")
+    if st.session_state.role == "admin":
+        st.subheader("Panel Administratora")
+        with st.expander("Zarządzanie użytkownikami"):
+            new_username = st.text_input("Nowa nazwa użytkownika")
+            new_password = st.text_input("Nowe hasło", type="password")
+            new_role = st.selectbox("Rola", ["user", "admin"])
+            if st.button("Dodaj użytkownika"):
+                df = load_users()
+                if new_username in df["username"].values:
+                    st.warning("Ta nazwa użytkownika już istnieje.")
+                else:
+                    new_user = pd.DataFrame([{"username": new_username, "password": new_password, "role": new_role}])
+                    df = pd.concat([df, new_user], ignore_index=True)
+                    df.to_csv(USERS_FILE, index=False)
+                    st.success(f"Dodano nowego użytkownika: **{new_username}**")
+                    st.experimental_rerun()
+        
+    st.markdown("### Przejdź do aplikacji")
+    if st.button("Otwórz Dziennik Kalorii"):
+        st.switch_page("pages/dziennik_kalorii.py")
 
-# Przycisk do przejścia do statystyk (opcjonalnie)
-if st.button("📊 Pokaż statystyki"):
-    st.switch_page("pages/statystyki.py")  # lub możesz dodać osobny plik w pages/
-
+    if st.button("Wyloguj"):
+        st.session_state.logged_in = False
+        st.session_state.username = None
+        st.session_state.role = None
+        st.experimental_rerun()
