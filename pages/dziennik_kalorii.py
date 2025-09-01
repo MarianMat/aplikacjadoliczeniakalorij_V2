@@ -309,3 +309,5 @@ if df_today.empty:
 else:
     for _, row in df_today.iterrows():
         st.markdown(f"• 🕒 {row['czas']} – **{row['produkt']}** ({int(row['waga'])}g) – **{int(row['kalorie'])} kcal** | Białko: {row['białko']:.1f}g, Tłuszcz: {row['tłuszcz']:.1f}g, Węglowodany: {row['węglowodany']:.1f}g ({row['typ']})")
+    for _, row in df_today.iterrows():
+        st.markdown(f"• 🕒 {row['czas']} – **{row['produkt']}** ({int(row['waga'])}g) – **{int(row['kalorie'])} kcal** | Białko: {row['białko']:.1f}g, Tłuszcz: {row['tłuszcz']:.1f}g, Węglowodany: {row['węglowodany']:.1f}g ({row['typ']})")
